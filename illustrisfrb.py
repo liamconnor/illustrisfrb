@@ -16,25 +16,6 @@ from scipy import interpolate
 
 import illustris_python as il 
 
-plt.rcParams.update({
-                    'font.size': 12,
-                    'font.family': 'serif',
-                    'axes.labelsize': 14,
-                    'axes.titlesize': 15,
-                    'xtick.labelsize': 12,
-                    'ytick.labelsize': 12,
-                    'xtick.direction': 'in',
-                    'ytick.direction': 'in',
-                    'xtick.top': True,
-                    'ytick.right': True,
-                    'lines.linewidth': 0.5,
-                    'lines.markersize': 5,
-                    'legend.fontsize': 14,
-                    'legend.borderaxespad': 0,
-                    'legend.frameon': True,
-                    'legend.loc': 'lower right'})
-
-colors1 = ['k', '#482677FF', '#238A8DDF', '#95D840FF']
 
 class IllustrisFRB:
     def __init__(self, basepath, snapNum, basedir):
@@ -54,6 +35,12 @@ class IllustrisFRB:
                              'SubhaloHalfmassRad',
                              'SubhaloMassInHalfRad',
                              'SubhaloStellarPhotometrics']
+
+        self.group_fields = ['GroupPos',
+                             'Group_M_Crit200',
+                             'Group_M_Crit500',
+                             'Group_R_Crit200',
+                             'Group_R_Crit500']
 
         self.xyz_origin = np.array([0,0,0])
 
@@ -119,6 +106,25 @@ class IllustrisFRB:
 
         return ind
 
+    def select_groups(self, groups, Mmin=0, 
+                           Mmax=np.inf, field_gal=False,
+                           xyz_halos=None):
+        Mhalo = groups['Group_M_Crit500'] * 1e10
+        ind = np.where((Mhalo > Mmin) & (Mhalo < Mmax))[0]
+
+        if field_gal is True:
+            assert xyz_halos is not None, "Need xyz_halos if field_gal=True"
+            xyz_halos = groups['GroupPos']
+            xyz_massive = xyz_halos[Mhalo>5e13]
+            ind_field = []
+            for ii in ind:
+                sep_kpc = np.sqrt(np.sum(np.abs(xyz_halos[ii]-xyz_massive)**2, axis=1))
+                if sep_kpc.min() > 2000.0:
+                    ind_field.append(ii)
+            ind = ind_field            
+
+        return ind
+
     def read_snapchunk(self, file=None, fn='simulation.hdf5', 
                        snapfields=None,
                        start=0, snapNum=98,
@@ -154,7 +160,7 @@ class IllustrisFRB:
 
         return data_dict
 
-    def read_halos(self, Mmin=0, Mmax=np.inf, field_gal=False):
+    def read_subhalos(self, Mmin=0, Mmax=np.inf, field_gal=False):
         """ Read in halos from subhalo catalog 
         """
         subhalos = il.groupcat.loadSubhalos(self.basePath,
@@ -174,15 +180,36 @@ class IllustrisFRB:
 
         return xyz_halos, r_halo, theta_halo, phi_halo, Mhalo, subhalos_r200
 
-    def compute_dm_los(self,xyz,xyz_frb,dm_cell,cellsize):
+    def read_groups(self, Mmin=0, Mmax=np.inf, field_gal=False):
+        """ Read in halos from subhalo catalog 
+        """
+        groups = il.groupcat.loadHalos(self.basePath,
+                                            self.snapNum,
+                                            fields=self.group_fields)
 
-        print("Assuming cylinder is along z-axis")
+        ind_halos = self.select_groups(groups, Mmin=Mmin, 
+                                       Mmax=Mmax, field_gal=field_gal)
+        
+        Mhalo = groups['Group_M_Crit500']*1e10*u.M_sun
+        Mhalo = Mhalo[ind_halos]
+        subhalos_r200 = groups['Group_R_Crit500'][ind_halos]#[ind_large]
+        xyz_halos = groups['GroupPos'][ind_halos]
+
+        r_halo, theta_halo, phi_halo = self.cart2spher(xyz_halos[:,0],
+                                                     xyz_halos[:,1],
+                                                  xyz_halos[:,2])
+
+        return xyz_halos, r_halo, theta_halo, phi_halo, Mhalo, subhalos_r200
+
+    def compute_dm_los(self,xyz,xyz_frb,dm_cell,cellsize):
         sep_kpc = np.sqrt((xyz_frb[0]-xyz[:,0])**2 + (xyz_frb[1]-xyz[:,1])**2)
         ind = np.where(sep_kpc<cellsize)[0]
 
         adjust_los = np.sqrt(cellsize[ind]**2-sep_kpc[ind]**2) / sep_kpc[ind]
         dm_cell_tangent = dm_cell[ind] * adjust_los
         dr_los = cellsize[ind]
+
+        print(np.sum(dr_los * adjust_los))
 
         return dr_los, dm_cell_tangent, xyz[ind, 2]
 
@@ -266,7 +293,7 @@ class IllustrisFRB:
         return xyz_ind, cellsize, ne, density
 
     def cluster_dm_profile(self,nhalo=10, nchunkuse=1, plot_halo=False):
-        _ = self.read_halos(Mmin=1e14,Mmax=np.inf,field_gal=False)
+        _ = self.read_subhalos(Mmin=1e14,Mmax=np.inf,field_gal=False)
         xyz_halos, r_halo, theta_halo, phi_halo, Mhalo, subhalos_r200 = _
 
         f = h5py.File('simulation.hdf5','r')
@@ -309,7 +336,7 @@ class IllustrisFRB:
 
         f = h5py.File('simulation.hdf5','r')
 
-        outdir = './data_%d-%d'%(xyz_halo[0], xyz_halo[1])
+        outdir = './data_random_%d-%d'%(xyz_halo[0], xyz_halo[1])
 
         # Check if the directory exists
         if not os.path.exists(outdir):
@@ -320,7 +347,7 @@ class IllustrisFRB:
             print("Processing chunk: %d/%d" % (chunk,nchunk))
             
             data=self.read_snapchunk(snapfields=self.snapfields,
-                                start=int(chunk*3e8),stop=int((chunk+1)*3e8),
+                                start=int(chunk*1e8),stop=int((chunk+1)*1e8),
                                 calc_volume=True, file=f, 
                                 snapNum=self.snapNum,
                                 )
@@ -340,7 +367,6 @@ class IllustrisFRB:
             xyz_cyl, cellsize, ne, density = self.get_gas_properties(data, 
                                                                      xyz, 
                                                                      ind_cyl)
-            print(cellsize.max())
 
             dmtot, dm_cyl, dr  = self.dm_cell(ne, density, 
                                               cellsize, 
@@ -359,10 +385,10 @@ class IllustrisFRB:
         return xyz[ind_cyl], ind_cyl
 
 def get_dm_profile(xyz, xyz_halo, DM=None, 
-                   cellsize=None, nr=25, ntheta=10):
+                   cellsize=None, nr=25, ntheta=10, sep_thresh=2500.):
     frb = IllustrisFRB("output/", 98, "basedir")
 
-    rs = np.linspace(-2000, 2000, nr)
+    rs = np.linspace(-sep_thresh, sep_thresh, nr)
     thetas = np.linspace(0, 2*np.pi, ntheta)
 
     if DM is None or cellsize is None:
@@ -387,17 +413,12 @@ def get_dm_profile(xyz, xyz_halo, DM=None,
 
     return rs, dm_of_b
 
-
-
     
-def dm_from_cyl(xfrb, outdir=None, sav=True, xlos=None):
+def dm_from_cyl(outdir=None, sav=True, xlos=None):
     FRBIl = IllustrisFRB("output/", 98, "basedir")
 
-    if xlos is None:
-        xlos = xfrb
-
     if outdir is None:
-        outdir = './data_%d-%d'%(xfrb[0], xfrb[1])
+        outdir = './data_%d-%d'%(xlos[0], xlos[1])
 
     fl = glob.glob(outdir+'/xyz_cell_chunk*')
     fl.sort()
@@ -421,6 +442,9 @@ def dm_from_cyl(xfrb, outdir=None, sav=True, xlos=None):
     cellsize = np.concatenate(cellsize)
     DM = np.concatenate(DM)
 
+    if xlos is None:
+        xlos = np.mean(xyz_cyl,0) + np.array([500,0,0])
+
     dr_los, dm_los, zlos = FRBIl.compute_dm_los(xyz_cyl,xlos,DM,cellsize)
     sort_index = np.argsort(zlos)
 
@@ -434,15 +458,41 @@ def dm_from_cyl(xfrb, outdir=None, sav=True, xlos=None):
 
     return xyz_cyl, zlos, dm_los, DM, cellsize
 
+def get_lots_of_sightlines(n=50):
+    fdirs = glob.glob('data_*-*')
+    DMarr = np.zeros([n,n,len(fdirs)])
+    h = 100/69.
+    for kk,fd in enumerate(fdirs):
+        xyz_cyl, zlos, dm_los, DM, cellsize = dm_from_cyl(outdir=fd, sav=False, xlos=None)
+        xs = np.linspace(xyz_cyl[:,0].min()+250, xyz_cyl[:,0].max()-250,n)
+        ys = np.linspace(xyz_cyl[:,1].min()+250, xyz_cyl[:,1].max()-250,n)
+
+        for ii in range(n):
+            for jj in range(n):
+                x = xs[ii]
+                y = ys[jj]
+                dr_los, dm_los, zlos = frb.compute_dm_los(xyz_cyl,[x,y,0],DM,cellsize)
+                sort_index = np.argsort(zlos)
+                zlos = zlos[sort_index]
+                dm_los = dm_los[sort_index]
+                DMarr[ii,jj,kk] = np.sum(dm_los)/h**2
+
+    return DMarr
+
+
 if __name__=='__main__':
     frb = IllustrisFRB("output/", 98, "basedir")
-    plot_halos_paper(cmap='plasma',sep_thresh=2500)
-    #halos = frb.read_halos(Mmin=4.8e14, Mmax=4.85e14)
+#    dmarr = get_lots_of_sightlines(n=3)
+#    np.save('dmarrfull_clusters', dmarr)
+#    plot_halos_paper(cmap='plasma',sep_thresh=2500)
+
+#    halos = frb.read_groups(Mmin=1e12, Mmax=np.inf)
     #xyz_cyl, zlos, dm_los = dm_from_cyl(halos[0][0]+np.array([300,300,0]))
     
-#    halos = frb.read_halos(Mmin=1e14, Mmax=np.inf)
-    # for ii in range(len(halos[0])):
-    #     frb.read_cylinder(halos[0][ii], 50)
+#    halos = frb.read_subhalos(Mmin=1e14, Mmax=np.inf)
+    # for ii in range(25):
+    #     x, y = np.random.uniform(10e3, 180e3, 1),np.random.uniform(10e3, 180e3, 1)
+    #     frb.read_cylinder(np.array([x,y,100000.]),50)
     #     xyz_cyl, zlos, dm_los = dm_from_cyl(halos[0][ii])
 #    dm_animation(xyz_cyl, zlos, dm_los)
 #    a.read_cylinder([112000, 110500, 150000], 100)
