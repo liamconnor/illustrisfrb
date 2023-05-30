@@ -30,11 +30,11 @@ class IllustrisFRB:
                            'PartType0/StarFormationRate']
 
         self.subhalo_fields = ['SubhaloMass',
-                             'SubhaloSFRinRad',
-                             'SubhaloPos',
-                             'SubhaloHalfmassRad',
-                             'SubhaloMassInHalfRad',
-                             'SubhaloStellarPhotometrics']
+                                'SubhaloSFRinRad',
+                                'SubhaloPos',
+                                'SubhaloHalfmassRad',
+                                'SubhaloMassInHalfRad',
+                                'SubhaloStellarPhotometrics']
 
         self.group_fields = ['GroupPos',
                              'Group_M_Crit200',
@@ -209,7 +209,7 @@ class IllustrisFRB:
         dm_cell_tangent = dm_cell[ind] * adjust_los
         dr_los = cellsize[ind]
 
-        print(np.sum(dr_los * adjust_los))
+#        print(np.sum(dr_los * adjust_los))
 
         return dr_los, dm_cell_tangent, xyz[ind, 2]
 
@@ -329,14 +329,14 @@ class IllustrisFRB:
 
                 xyz_cluster, cellsize, ne, density = self.get_gas_properties(data, xyz, 
                                                                             ind_clust)
-    def read_cylinder(self, xyz_halo, nchunk=1):
+    def read_cylinder(self, xyz_halo, nchunk=1, cyl_radius=5000):
         # Cannot read in full dataset, need to read it in chunks
 
         assert len(xyz_halo)==3, "Expecting just one 3D coordinate"
 
         f = h5py.File('simulation.hdf5','r')
 
-        outdir = './data_random_%d-%d'%(xyz_halo[0], xyz_halo[1])
+        outdir = './data_50e3kpc_%d-%d'%(xyz_halo[0], xyz_halo[1])
 
         # Check if the directory exists
         if not os.path.exists(outdir):
@@ -347,7 +347,7 @@ class IllustrisFRB:
             print("Processing chunk: %d/%d" % (chunk,nchunk))
             
             data=self.read_snapchunk(snapfields=self.snapfields,
-                                start=int(chunk*1e8),stop=int((chunk+1)*1e8),
+                                start=int(chunk*3e8),stop=int((chunk+1)*3e8),
                                 calc_volume=True, file=f, 
                                 snapNum=self.snapNum,
                                 )
@@ -358,7 +358,7 @@ class IllustrisFRB:
                 continue
 
             sep_kpc = np.sqrt(np.sum(np.abs(xyz_halo[:2] - xyz[:, :2])**2, axis=1))
-            ind_cyl = np.where(sep_kpc < 5000.0)[0]
+            ind_cyl = np.where(sep_kpc < cyl_radius)[0]
 
             if len(ind_cyl)==0:
                 print("    Nothing in cylinder")
@@ -385,7 +385,8 @@ class IllustrisFRB:
         return xyz[ind_cyl], ind_cyl
 
 def get_dm_profile(xyz, xyz_halo, DM=None, 
-                   cellsize=None, nr=25, ntheta=10, sep_thresh=2500.):
+                   cellsize=None, nr=25, ntheta=10, 
+                   sep_thresh=2500.):
     frb = IllustrisFRB("output/", 98, "basedir")
 
     rs = np.linspace(-sep_thresh, sep_thresh, nr)
@@ -413,12 +414,14 @@ def get_dm_profile(xyz, xyz_halo, DM=None,
 
     return rs, dm_of_b
 
-    
-def dm_from_cyl(outdir=None, sav=True, xlos=None):
+def dm_from_cyl(outdir=None, sav=True, xlos=None, 
+                dochunks=True, nlosx=25, nlosy=25):
     FRBIl = IllustrisFRB("output/", 98, "basedir")
 
     if outdir is None:
-        outdir = './data_%d-%d'%(xlos[0], xlos[1])
+        outdir = './data_full%d-%d'%(xlos[0], xlos[1])
+
+    print("Reading from %s" % outdir)
 
     fl = glob.glob(outdir+'/xyz_cell_chunk*')
     fl.sort()
@@ -429,14 +432,50 @@ def dm_from_cyl(outdir=None, sav=True, xlos=None):
 
     xyz_cyl, DM, cellsize = [], [], [] 
 
-    for ii, ff in enumerate(fl):
+    if dochunks: 
+        zlosarr=[]
+        dmlosarr=[]
+
+    for ii in range(len(fl))[:]:
+        ff = fl[ii]
         print(ii, ff)
-        d = np.load(ff)
+        xyz_cyl_ii = np.load(ff)
         dm = np.load(fldm[ii])
-        r = np.load(flr[ii])
-        xyz_cyl.append(d)
-        DM.append(dm)
-        cellsize.append(r)
+        cellsizeii = np.load(flr[ii])
+
+        if dochunks:
+            for xx in np.linspace(51000, 149000, nlosx):
+                for yy in np.linspace(51000, 149000, nlosy):
+                    dr_los, dm_los, zlos = FRBIl.compute_dm_los(xyz_cyl_ii,[xx,yy,0],dm,cellsizeii)
+
+                    if len(dm_los):
+                        np.save("losdata2/z_chunk%d_%d-%d-all.npy"%(ii, xx, yy), zlos)
+                        np.save("losdata2/dm_chunk%d_%d-%d-all.npy"%(ii, xx, yy), dm_los)
+
+                    # dr_los, dm_los, zlos = FRBIl.compute_dm_los(xyz_cyl_ii,[0,xx,yy],dm,cellsizeii)
+
+                    # if len(dm_los):
+                    #     np.save("losdatax/z_chunk%d_all-%d-%d.npy"%(ii, xx, yy), zlos)
+                    #     np.save("losdatax/dm_chunk%d_all-%d-%d.npy"%(ii, xx, yy), dm_los)
+
+                    # dr_los, dm_los, zlos = FRBIl.compute_dm_los(xyz_cyl_ii,[xx,0,yy],dm,cellsizeii)
+
+                    # if len(dm_los):
+                    #     np.save("losdatax/z_chunk%d_%d-all-%d.npy"%(ii, xx, yy), zlos)
+                    #     np.save("losdatax/dm_chunk%d_%d-all-%d.npy"%(ii, xx, yy), dm_los)                        
+        else:
+            xyz_cyl.append(xyz_cyl_ii)
+            cellsize.append(cellsizeii)
+            DM.append(dm)
+    
+    if dochunks:
+        zz = np.concatenate(zlosarr)
+        dm = np.concatenate(dmlosarr)
+        if sav:
+            np.save(outdir+'/DM_los.npy', np.concatenate([zz, 
+                                                          dm]).reshape(2,-1))
+
+        return zlosarr, dmlosarr
 
     xyz_cyl = np.concatenate(xyz_cyl)
     cellsize = np.concatenate(cellsize)
@@ -458,12 +497,14 @@ def dm_from_cyl(outdir=None, sav=True, xlos=None):
 
     return xyz_cyl, zlos, dm_los, DM, cellsize
 
-def get_lots_of_sightlines(n=50):
-    fdirs = glob.glob('data_*-*')
+def get_lots_of_sightlines(outdir,n=50):
+    fdirs = glob.glob(outdir)
     DMarr = np.zeros([n,n,len(fdirs)])
     h = 100/69.
     for kk,fd in enumerate(fdirs):
-        xyz_cyl, zlos, dm_los, DM, cellsize = dm_from_cyl(outdir=fd, sav=False, xlos=None)
+        xyz_cyl, zlos, dm_los, DM, cellsize = dm_from_cyl(outdir=fd, 
+                                                          sav=False, 
+                                                          xlos=None)
         xs = np.linspace(xyz_cyl[:,0].min()+250, xyz_cyl[:,0].max()-250,n)
         ys = np.linspace(xyz_cyl[:,1].min()+250, xyz_cyl[:,1].max()-250,n)
 
@@ -471,7 +512,8 @@ def get_lots_of_sightlines(n=50):
             for jj in range(n):
                 x = xs[ii]
                 y = ys[jj]
-                dr_los, dm_los, zlos = frb.compute_dm_los(xyz_cyl,[x,y,0],DM,cellsize)
+                dr_los, dm_los, zlos = frb.compute_dm_los(xyz_cyl,[x,y,0],
+                                                          DM,cellsize)
                 sort_index = np.argsort(zlos)
                 zlos = zlos[sort_index]
                 dm_los = dm_los[sort_index]
@@ -479,14 +521,163 @@ def get_lots_of_sightlines(n=50):
 
     return DMarr
 
+def cgm_interveners(outdir='data_1e4kpc_100000-100000/', plot=False):
+    outdir = 'data_1e4kpc_100000-100000/'
+    outdir='data_25e3kpc_100000-100000/'
+    halos = frb.read_groups(Mmin=1e12, Mmax=np.inf)
+    xyz_halos = halos[0]
+    Mhalo = halos[-2].value
+    r500 = halos[-1]
+    bperpmin = []
+    dDM = []
+    r500min = []
+    Mhalos_x = []
+    M = []
+    for kk in range(24):
+        for jj in range(24):
+            xlos = [76000+jj*2e3,124000+kk*2e3,100000]
+            print(kk,jj)
+
+            if kk==0 and jj==0:
+                xyz_cyl, zlos, dm_los, DM, cellsize = dm_from_cyl(outdir, xlos=xlos, 
+                                                              nlosx=1, nlosy=1, 
+                                                              dochunks=False)
+            else:
+                dr_los, dm_los, zlos = frb.compute_dm_los(xyz_cyl,xlos,DM,cellsize)
+                sort_index = np.argsort(zlos)
+
+                zlos = zlos[sort_index] 
+                dm_los = dm_los[sort_index]
+
+            if not len(dm_los):
+                continue
+
+            dist = np.sqrt(np.sum((xyz_halos[:, :2] - xlos[:2])**2, 1))
+            distnorm = dist / r500
+            ind = np.where(dist/r500 < 5.0)[0]
+            if not len(ind):
+                continue
+            Mhalos_x.append(Mhalo[ind].max())
+            M.append(Mhalo[ind])
+            a, b, c = np.argmin(distnorm), np.min(dist), np.min(distnorm)
+            bperpmin.append(b)
+            r500min.append(c)
+            dDM.append(np.sum(dm_los))
+
+            if plot:
+                figure()
+                plot(1.4e-3* zlos, np.cumsum(dm_los), c='k', lw=3)
+                xlabel('Distance (Mpc)')
+                ylabel('Dispersion Measure')
+                for ii in ind:
+                    axvline(1.4e-3 * xyz_halos[ii, 2], color='C1', linestyle=':', alpha=0.5)
+                    text(1.4e-3 * (xyz_halos[ii, 2] + 4e3), np.random.uniform(np.cumsum(dm_los).max()*0.1, np.cumsum(dm_los).max()*0.75),
+                        '%0.1fe11 Msun\n b=%0.1f kpc'%(halos[-2][ii].value/1e11, dist[ii]))
+                savefig('DM%d-%d.pdf' % (kk, jj))
+
+    np.save('Mhalos_intervener', M)
+    np.save('bperp_min_kpc', bperpmin)
+    np.save('r500min', r500min)
+    np.save('DMlos.npy', dDM)
+
+def dm_from_halos():
+    fl = glob.glob('/home/connor/TNG300-1/losdata2/dm*.npy')
+    halos = frb.read_groups(Mmin=1e11, Mmax=np.inf)
+    xyz_halos = halos[0]
+    Mhalo = halos[-2].value
+    r500 = halos[-1]
+    bperpmin = []
+    dDM = []
+    r500min = []
+    Mhalos_x = []
+    M = []
+    Mr500min = []
+    Narr=[]
+    B=[]
+    ind=[]
+    zarr, dmarr = [], []
+    for fn in fl[:]:
+        dm_los = np.load(fn)
+        z = np.load(fn.replace('dm', 'z'))
+        xx = int(fn.split('dm')[1].split('-')[0])
+        yy = int(fn.split('dm')[1].split('-')[-1].split('.')[0])
+        xlos = [xx,yy]
+
+        dist = np.sqrt(np.sum((xyz_halos[:, :2] - xlos[:2])**2, 1))
+
+#        if dist[Mhalo>1e13].min() < 2000:
+#            print("Skipping because too close to group/cluster")
+#            continue
+
+        distnorm = dist / r500
+        ind = np.where(distnorm < 5)[0]
+
+        if np.sum(dm_los) > 500.:
+            print(dist[ind], np.log10(Mhalo[ind]))
+            plot(z, np.cumsum(dm_los))
+            for nn in range(len(ind)):
+                axvline(xyz_halos[nn][-1])
+            break
+
+        if not len(ind):
+            plot(z, np.cumsum(dm_los))
+            continue
+
+        Narr.append(len(ind))
+        dDM.append(np.sum(dm_los))
+        indarr.append(ind)
+        indo = np.argmin(dist/r500)
+        Mhalos_x.append(Mhalo[indo])
+        M.append(Mhalo[ind])
+        B.append(dist[ind])
+        a, b, c = np.argmin(distnorm), np.min(dist), np.min(distnorm)
+        bperpmin.append(b)
+        r500min.append(c)
+        #dDM.append(np.sum(dm_los))
+
+    dDM = np.array(dDM)
+    r500min = np.array(r500min)
+    Mhalos_x = np.array(Mhalos_x)
+    bperpmin = np.array(bperpmin)
+
+    indo = np.random.randint(0, 1000, 30)
+
+    scatter(bperpmin[Mhalos_x<1e13][indo],
+            dDM[Mhalos_x<1e13][indo]-80.,
+            c=np.log10(Mhalos_x[Mhalos_x<1e13][indo]), 
+            cmap='viridis', 
+            s=10, alpha=0.5)
+
+def cgm_likelihood():
+    nfrb = len(Mhalo)
+    DM_cgm_ii = []
+    Delta_DM = []
+    for ii in range(nfrb):
+        for jj in range(len(Mhalo[ii])):
+            #halo_model = m.YF17(Mhalo[ii][jj])
+            DM_cgm_ii.append(1)#halo_model.Ne_Rperp(bperp[ii][jj]*u.kpc).value)
+
+        DM_ex_model = np.sum(DM_cgm_ii)
+    
+        Delta_DM.append(DM_ex_obs - DM_ex_model)
+
+    sigma_DM = 10 * np.ones_like(Delta_DM)
+
+    logL = np.sum(-0.5 * Delta_DM**2 / Delta)
+
+    return logL
+
+
 
 if __name__=='__main__':
     frb = IllustrisFRB("output/", 98, "basedir")
-#    dmarr = get_lots_of_sightlines(n=3)
+#    frb.read_cylinder(np.array([100000.,100000.,100000.]),50,cyl_radius=50000)
+#    cgm_interveners(outdir='data_5e4kpc_100000-100000/', plot=False)
+#    dmarr = get_lots_of_sightlines(n=25)
 #    np.save('dmarrfull_clusters', dmarr)
 #    plot_halos_paper(cmap='plasma',sep_thresh=2500)
 
-#    halos = frb.read_groups(Mmin=1e12, Mmax=np.inf)
+#    halos = frb.read_groups(Mmin=2e14, Mmax=np.inf)
     #xyz_cyl, zlos, dm_los = dm_from_cyl(halos[0][0]+np.array([300,300,0]))
     
 #    halos = frb.read_subhalos(Mmin=1e14, Mmax=np.inf)
