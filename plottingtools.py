@@ -1,7 +1,9 @@
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-
 import illustris_python as il 
+
+from illustrisfrb import IllustrisFRB
+
 
 plt.rcParams.update({
                     'font.size': 12,
@@ -63,12 +65,14 @@ def compare_fwd_model(dmTNG, dmFM, maxM):
     plt.show()
 
 def plot_sightline(fl):
+    frb = IllustrisFRB("output/", 98, "basedir")
     halos = frb.read_groups(Mmin=5e9, Mmax=np.inf)
     xyz_halos = halos[0]
     Mhalo = halos[-2].value
     r500 = halos[-1]
     dmFM = np.zeros([len(fl)])
-    Ngal_cyl, Mtot_cyl, dmarr, Ngal_x = [], [], [], []
+    Ngal_cyl, Mtot_cyl, dmarr, Ngal_x, Mmax_arr = [], [], [], [], []
+    dm_model = []
     for jj,fn in enumerate(fl[:]):
         dm_los = np.load(fn)
         z = np.load(fn.replace('dm', 'z'))
@@ -79,15 +83,24 @@ def plot_sightline(fl):
         distnorm = dist / r500
 
         indcyl = np.where(dist < 5000.)[0]
-        indx = np.where((distnorm < 5) & (Mhalo > 1e11) & (Mhalo < 5e12))[0]
-
-        if not len(indx):
-            continue
+        indx = np.where((distnorm < 3.5) & (Mhalo > 1e9) & (Mhalo < np.inf))[0]
 
         Ngal_cyl.append(len(indcyl))
-        Mtot_cyl.append(Mhalo[indcyl].sum())
+        Mtot_cyl.append(np.sum(Mhalo[indcyl]))
         dmarr.append(dm_los.sum())
         Ngal_x.append(len(indx))
+        Mmax_arr.append(np.max(Mhalo[indx]))
+
+        dmFM = 0
+        for ll in range(len(indx)):
+            logM = np.log10(Mhalo[indx[ll]])
+            if logM>13.:
+                m = models.ICM(logM)
+            else:
+                m = models.M31(logM)
+            dmii = m.Ne_Rperp(dist[indx[ll]]*u.kpc)
+            dmFM += dmii.value
+        dm_model.append(dmFM)
 
         if np.min(dist[indx]) > 75.:
             continue
