@@ -4,7 +4,6 @@ import illustris_python as il
 
 from illustrisfrb import IllustrisFRB
 
-
 plt.rcParams.update({
                     'font.size': 12,
                     'font.family': 'serif',
@@ -64,7 +63,7 @@ def compare_fwd_model(dmTNG, dmFM, maxM):
     plt.loglog()
     plt.show()
 
-def plot_sightline(fl):
+def plot_sightline(fl, r500_min=1, Mhalo_min=1e9, Mhalo_max=np.inf):
     frb = IllustrisFRB("output/", 98, "basedir")
     halos = frb.read_groups(Mmin=5e9, Mmax=np.inf)
     xyz_halos = halos[0]
@@ -83,27 +82,32 @@ def plot_sightline(fl):
         distnorm = dist / r500
 
         indcyl = np.where(dist < 5000.)[0]
-        indx = np.where((distnorm < 3.5) & (Mhalo > 1e9) & (Mhalo < np.inf))[0]
+        indx = np.where((distnorm < r500_min) & (Mhalo > Mhalo_min) & (Mhalo < Mhalo_max))[0]
 
         Ngal_cyl.append(len(indcyl))
         Mtot_cyl.append(np.sum(Mhalo[indcyl]))
-        dmarr.append(dm_los.sum())
+        dmarr.append(np.sum(dm_los))
         Ngal_x.append(len(indx))
-        Mmax_arr.append(np.max(Mhalo[indx]))
 
-        dmFM = 0
-        for ll in range(len(indx)):
-            logM = np.log10(Mhalo[indx[ll]])
-            if logM>13.:
-                m = models.ICM(logM)
-            else:
-                m = models.M31(logM)
-            dmii = m.Ne_Rperp(dist[indx[ll]]*u.kpc)
-            dmFM += dmii.value
-        dm_model.append(dmFM)
-
-        if np.min(dist[indx]) > 75.:
+        if len(indx)==0:
             continue
+            Mmax_arr.append(0)
+        else:
+            Mmax_arr.append(np.max(Mhalo[indx]))
+
+        # dmFM = 0
+        # for ll in range(len(indx)):
+        #     logM = np.log10(Mhalo[indx[ll]])
+        #     if logM>13.:
+        #         m = models.ICM(logM)
+        #     else:
+        #         m = models.M31(logM)
+        #     dmii = m.Ne_Rperp(dist[indx[ll]]*u.kpc)
+        #     dmFM += dmii.value
+        # dm_model.append(dmFM)
+
+        # if np.min(dist[indx]) > 75.:
+        #     continue
 
         colors = plt.cm.Dark2(range(8))
         fig = plt.figure(figsize=(8,5))
@@ -125,7 +129,6 @@ def plot_sightline(fl):
         plt.plot(z, np.cumsum(dm_los), c='k')
         plt.xlabel('z (cMpc)')
         plt.ylabel('DM (pc cm$^{-3}$)')
-
         
         for kk,ii in enumerate(indx):
             plt.axvline(xyz_halos[ii][-1], c='C1')
@@ -134,7 +137,7 @@ def plot_sightline(fl):
             else:
                 m = models.M31(np.log10(Mhalo[ii]))
             dmii = m.Ne_Rperp(dist[ii]*u.kpc)
-            dmFM[jj] += dmii
+            dmFM[jj] += dmii.value
             plt.text(xyz_halos[ii][-1], 
                     kk/len(indx)*(np.sum(dm_los)), 
                     'logM=%0.1f\nBperp=%d kpc\nDM$_{mod}$=%0.1f' \
