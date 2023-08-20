@@ -64,6 +64,9 @@ def compare_fwd_model(dmTNG, dmFM, maxM):
     plt.show()
 
 def plot_sightline(fl, r500_min=1, Mhalo_min=1e9, Mhalo_max=np.inf):
+    """ For a publication, I should include the actual density field as 
+    well. 
+    """
     frb = IllustrisFRB("output/", 98, "basedir")
     halos = frb.read_groups(Mmin=5e9, Mmax=np.inf)
     xyz_halos = halos[0]
