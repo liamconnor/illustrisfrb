@@ -759,13 +759,13 @@ def cgm_likelihood():
 
 if __name__=='__main__':
     frb = IllustrisFRB("output/", 98, "basedir")
-    frb.snapfields = ['PartType1/Coordinates',]
+#    frb.snapfields = ['PartType1/Coordinates',]
 
-    density_field, field_coords = frb.read_data_downsample(nchunk=310, 
-                                                           calc_volume=False,
-                                                           particletype=1)
-    np.save('density_field', density_field)
-    np.save('field_coords', field_coords)
+    # density_field, field_coords = frb.read_data_downsample(nchunk=310, 
+    #                                                        calc_volume=False,
+    #                                                        particletype=1)
+    # np.save('density_field', density_field)
+    # np.save('field_coords', field_coords)
 #    g = h5py.File('DarkCube.hdf5', 'w')
 #    g.create_dataset('coordinates', data=field_coords)
 #    g.create_dataset('xyz_halos', data=xyz_halos)
@@ -788,8 +788,3 @@ if __name__=='__main__':
 #    dm_animation(xyz_cyl, zlos, dm_los)
 #    a.read_cylinder([112000, 110500, 150000], 100)
 #    d = my_frb.cluster_dm_profile(1,1)
-
-
-
-
-

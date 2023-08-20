@@ -113,14 +113,14 @@ def plot_sightline(fl, r500_min=1, Mhalo_min=1e9, Mhalo_max=np.inf):
         fig = plt.figure(figsize=(8,5))
         plt.subplot(311)
         plt.scatter(xyz_halos[indcyl][:, 2], xyz_halos[indcyl][:, 0], 
-                    s=Mhalo[indcyl]/1e11, c=colors[0])
+                    s=Mhalo[indcyl]/1e11*5, c=np.log10(Mhalo[indcyl]), vmax=14., vmin=12.0)
         plt.axhline(xx, linestyle=':', c='k')
         plt.xlabel('z (cMpc)')
         plt.ylabel('x (cMpc)')
 
         plt.subplot(312)
         plt.scatter(xyz_halos[indcyl][:, 2], xyz_halos[indcyl][:, 1], 
-                    s=Mhalo[indcyl]/1e11, c=colors[1])
+                    s=Mhalo[indcyl]/1e11*5, c=np.log10(Mhalo[indcyl]),  vmax=14., vmin=12.0)
         plt.axhline(yy, linestyle=':', c='k')
         plt.xlabel('z (cMpc)')
         plt.ylabel('y (cMpc)')
