@@ -313,21 +313,7 @@ class IllustrisFRB:
                                     snapNum=self.snapNum,
                                     )
             return data
-            # Coordinates of cells in Cartesian
-            xyz = data['PartType0/Coordinates']
 
-            for nn in range(nhalo):
-                sep_kpc = np.sqrt(np.sum(np.abs(xyz_halos[nn] - xyz)**2, axis=1))
-                ind_clust = np.where(sep_kpc < 3000.0)[0]
-
-                if len(ind_clust)==0:
-                    print("Skipping this cluster.")
-                    continue
-                else:
-                    print(len(ind_clust))
-
-                xyz_cluster, cellsize, ne, density = self.get_gas_properties(data, xyz, 
-                                                                            ind_clust)
     def read_cylinder(self, xyz_halo, nchunk=1, cyl_radius=5000, calc_volume=True):
         # Cannot read in full dataset, need to read it in chunks
 
