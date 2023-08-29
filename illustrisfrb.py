@@ -363,7 +363,9 @@ class IllustrisFRB:
 
             del dm_cyl, xyz_cyl, ind_cyl, data, xyz
 
-    def read_data_downsample(self, nchunk=1, calc_volume=True, particletype=0):
+    def read_data_downsample(self, nchunk=1,
+                            calc_volume=True, 
+                            particletype=0, nbin=1024):
         # Cannot read in full dataset, need to read it in chunks
 
         f = h5py.File('simulation.hdf5','r')
@@ -387,13 +389,15 @@ class IllustrisFRB:
                                 )
 
             xyz = data['PartType%s/Coordinates' % particletype]
+            mass = data['PartType%s/Masses' % particletype]
 
             if len(xyz)==0:
                 print("    Empty chunk")
                 continue
 
-            X = np.histogramdd(xyz, bins=(1024, 1024, 1024), 
-                               range=((0, 205e3),(0, 205e3),(0, 205e3)))
+            X = np.histogramdd(xyz, bins=(nbin, nbin, nbin), 
+                               range=((0, 205e3),(0, 205e3),(0, 205e3)),
+                               weights=mass)
 
             density_field += X[0]
 
@@ -436,6 +440,13 @@ def get_dm_profile(xyz, xyz_halo, DM=None,
             dm_of_b[jj,ii] = np.sum(dm_los)
 
     return rs, dm_of_b
+
+def estimate_figm(halos):
+    xyz_halos = halos[0]
+    Mhalo = halos[-2].value
+    r500 = halos[-1]
+    
+
 
 def dm_from_cyl(outdir=None, sav=True, xlos=None, 
                 dochunks=True, nlosx=25, nlosy=25):
