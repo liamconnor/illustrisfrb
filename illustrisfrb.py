@@ -441,12 +441,14 @@ def get_dm_profile(xyz, xyz_halo, DM=None,
 
     return rs, dm_of_b
 
-def estimate_figm(halos):
-    xyz_halos = halos[0]
-    Mhalo = halos[-2].value
-    r500 = halos[-1]
-    
+def estimate_figm(fnbaryon, fnmask):
+    mask = np.load(fnmask)
+    mass = np.load(fnbaryon)
 
+    mass_in_halos = np.sum(mass[mask])
+    mass_in_IGM = np.sum(mass[~mask])
+
+    return mass_in_halos, mass_in_IGM
 
 def dm_from_cyl(outdir=None, sav=True, xlos=None, 
                 dochunks=True, nlosx=25, nlosy=25):
