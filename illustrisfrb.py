@@ -18,10 +18,11 @@ import illustris_python as il
 
 
 class IllustrisFRB:
-    def __init__(self, basepath, snapNum, basedir):
+    def __init__(self, basepath, snapNum, basedir, fnsim='simulation.hdf5'):
         self.basePath = basepath
         self.snapNum = snapNum
         self.basedir = basedir
+        self.fnsim = fnsim
 
         self.snapfields = ['PartType0/Masses',
                            'PartType0/Coordinates',
@@ -125,13 +126,15 @@ class IllustrisFRB:
 
         return ind
 
-    def read_snapchunk(self, file=None, fn='simulation.hdf5', 
+    def read_snapchunk(self, file=None,  
                        snapfields=None,
                        start=0, snapNum=98,
                        stop=int(1e8), calc_volume=True):
         """ Read in a chunk of snapshot data between cell 
         index start and stop. 
         """
+        fn = self.fnsim
+
         if file is None:
             f = h5py.File(fn,'r')
         else:
@@ -296,7 +299,7 @@ class IllustrisFRB:
         _ = self.read_subhalos(Mmin=1e14,Mmax=np.inf,field_gal=False)
         xyz_halos, r_halo, theta_halo, phi_halo, Mhalo, subhalos_r200 = _
 
-        f = h5py.File('simulation.hdf5','r')
+        f = h5py.File(self.fnsim,'r')
         
         dphis = np.deg2rad(np.linspace(-0.5, 0.5, 50))
         dm = np.zeros([nhalo, len(dphis)])
@@ -319,7 +322,7 @@ class IllustrisFRB:
 
         assert len(xyz_halo)==3, "Expecting just one 3D coordinate"
 
-        f = h5py.File('simulation.hdf5','r')
+        f = h5py.File(self.fnsim,'r')
 
         outdir = './data_50e3kpc_%d-%d'%(xyz_halo[0], xyz_halo[1])
 
@@ -368,7 +371,7 @@ class IllustrisFRB:
                             particletype=0, nbin=1024):
         # Cannot read in full dataset, need to read it in chunks
 
-        f = h5py.File('simulation.hdf5','r')
+        f = h5py.File(self.fnsim,'r')
 
         outdir = './'
 
@@ -758,32 +761,3 @@ def cgm_likelihood():
 
 if __name__=='__main__':
     frb = IllustrisFRB("output/", 98, "basedir")
-#    frb.snapfields = ['PartType1/Coordinates',]
-
-    # density_field, field_coords = frb.read_data_downsample(nchunk=310, 
-    #                                                        calc_volume=False,
-    #                                                        particletype=1)
-    # np.save('density_field', density_field)
-    # np.save('field_coords', field_coords)
-#    g = h5py.File('DarkCube.hdf5', 'w')
-#    g.create_dataset('coordinates', data=field_coords)
-#    g.create_dataset('xyz_halos', data=xyz_halos)
-#    g.close()
-
-#    frb.read_cylinder(np.array([100000.,100000.,100000.]),50,cyl_radius=500)
-#    cgm_interveners(outdir='data_5e4kpc_100000-100000/', plot=False)
-#    dmarr = get_lots_of_sightlines(n=25)
-#    np.save('dmarrfull_clusters', dmarr)
-#    plot_halos_paper(cmap='plasma',sep_thresh=2500)
-
-#    halos = frb.read_groups(Mmin=2e14, Mmax=np.inf)
-    #xyz_cyl, zlos, dm_los = dm_from_cyl(halos[0][0]+np.array([300,300,0]))
-    
-#    halos = frb.read_subhalos(Mmin=1e14, Mmax=np.inf)
-    # for ii in range(25):
-    #     x, y = np.random.uniform(10e3, 180e3, 1),np.random.uniform(10e3, 180e3, 1)
-    #     frb.read_cylinder(np.array([x,y,100000.]),50)
-    #     xyz_cyl, zlos, dm_los = dm_from_cyl(halos[0][ii])
-#    dm_animation(xyz_cyl, zlos, dm_los)
-#    a.read_cylinder([112000, 110500, 150000], 100)
-#    d = my_frb.cluster_dm_profile(1,1)
