@@ -317,7 +317,8 @@ class IllustrisFRB:
                                     )
             return data
 
-    def read_cylinder(self, xyz_halo, nchunk=1, cyl_radius=5000, calc_volume=True):
+    def read_cylinder(self, xyz_halo, nchunk=1, cyl_radius=5000, 
+                      calc_volume=True):
         # Cannot read in full dataset, need to read it in chunks
 
         assert len(xyz_halo)==3, "Expecting just one 3D coordinate"
@@ -335,9 +336,9 @@ class IllustrisFRB:
             print("Processing chunk: %d/%d" % (chunk,nchunk))
             
             data=self.read_snapchunk(snapfields=self.snapfields,
-                                start=int(chunk*3e8),stop=int((chunk+1)*3e8),
+                                start=int(chunk*1e8),stop=int((chunk+1)*1e8),
                                 calc_volume=True, file=f, 
-                                snapNum=self.snapNum,
+                                snapNum=self.snapNum, calc_volume=calc_volume
                                 )
             xyz = data['PartType0/Coordinates']
 
