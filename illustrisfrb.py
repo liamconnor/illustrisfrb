@@ -295,7 +295,7 @@ class IllustrisFRB:
 
         return xyz_ind, cellsize, ne, density
 
-    def cluster_dm_profile(self,nhalo=10, nchunkuse=1, plot_halo=False):
+    def cluster_dm_profile(self,nhalo=10, nchunkuse=1, calc_volume=True, plot_halo=False):
         _ = self.read_subhalos(Mmin=1e14,Mmax=np.inf,field_gal=False)
         xyz_halos, r_halo, theta_halo, phi_halo, Mhalo, subhalos_r200 = _
 
@@ -337,8 +337,8 @@ class IllustrisFRB:
             
             data=self.read_snapchunk(snapfields=self.snapfields,
                                 start=int(chunk*1e8),stop=int((chunk+1)*1e8),
-                                calc_volume=True, file=f, 
-                                snapNum=self.snapNum, calc_volume=calc_volume
+                                calc_volume=calc_volume, file=f, 
+                                snapNum=self.snapNum,
                                 )
             xyz = data['PartType0/Coordinates']
 
@@ -762,3 +762,33 @@ def cgm_likelihood():
 
 if __name__=='__main__':
     frb = IllustrisFRB("output/", 98, "basedir")
+
+    #    frb.snapfields = ['PartType1/Coordinates',]
+
+    # density_field, field_coords = frb.read_data_downsample(nchunk=310, 
+    #                                                        calc_volume=False,
+    #                                                        particletype=1)
+    # np.save('density_field', density_field)
+    # np.save('field_coords', field_coords)
+#    g = h5py.File('DarkCube.hdf5', 'w')
+#    g.create_dataset('coordinates', data=field_coords)
+#    g.create_dataset('xyz_halos', data=xyz_halos)
+#    g.close()
+
+#    frb.read_cylinder(np.array([100000.,100000.,100000.]),50,cyl_radius=500)
+#    cgm_interveners(outdir='data_5e4kpc_100000-100000/', plot=False)
+#    dmarr = get_lots_of_sightlines(n=25)
+#    np.save('dmarrfull_clusters', dmarr)
+#    plot_halos_paper(cmap='plasma',sep_thresh=2500)
+
+#    halos = frb.read_groups(Mmin=2e14, Mmax=np.inf)
+    #xyz_cyl, zlos, dm_los = dm_from_cyl(halos[0][0]+np.array([300,300,0]))
+    
+#    halos = frb.read_subhalos(Mmin=1e14, Mmax=np.inf)
+    # for ii in range(25):
+    #     x, y = np.random.uniform(10e3, 180e3, 1),np.random.uniform(10e3, 180e3, 1)
+    #     frb.read_cylinder(np.array([x,y,100000.]),50)
+    #     xyz_cyl, zlos, dm_los = dm_from_cyl(halos[0][ii])
+#    dm_animation(xyz_cyl, zlos, dm_los)
+#    a.read_cylinder([112000, 110500, 150000], 100)
+#    d = my_frb.cluster_dm_profile(1,1)
