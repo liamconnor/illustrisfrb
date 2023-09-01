@@ -12,7 +12,6 @@ from astropy import constants as const
 import pandas as pd 
 import h5py
 import glob
-from numba import jit
 
 import illustris_python as il 
 
@@ -316,7 +315,7 @@ class IllustrisFRB:
                                     snapNum=self.snapNum,
                                     )
             return data
-    @jit
+
     def read_cylinder(self, xyz_halo, nchunk=1, cyl_radius=5000, 
                       calc_volume=True):
         # Cannot read in full dataset, need to read it in chunks
