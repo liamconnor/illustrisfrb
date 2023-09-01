@@ -12,7 +12,7 @@ from astropy import constants as const
 import pandas as pd 
 import h5py
 import glob
-from scipy import interpolate
+from numba import jit
 
 import illustris_python as il 
 
@@ -316,7 +316,7 @@ class IllustrisFRB:
                                     snapNum=self.snapNum,
                                     )
             return data
-
+    @jit
     def read_cylinder(self, xyz_halo, nchunk=1, cyl_radius=5000, 
                       calc_volume=True):
         # Cannot read in full dataset, need to read it in chunks
@@ -325,7 +325,7 @@ class IllustrisFRB:
 
         f = h5py.File(self.fnsim,'r')
 
-        outdir = './data_50e3kpc_%d-%d'%(xyz_halo[0], xyz_halo[1])
+        outdir = './data_%dkpc_%d-%d'%(int(cyl_radius), xyz_halo[0], xyz_halo[1])
 
         # Check if the directory exists
         if not os.path.exists(outdir):
