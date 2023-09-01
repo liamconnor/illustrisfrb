@@ -365,7 +365,8 @@ class IllustrisFRB:
             np.save(outdir+'/dm_cell_chunk%d'%chunk, dm_cyl.value)
             np.save(outdir+'/cellsize_chunk%d'%chunk, cellsize.value)
 
-            del dm_cyl, xyz_cyl, ind_cyl, data, xyz
+            # Jit does not like "delete", so let's replace with None
+            dm_cyl, xyz_cyl, ind_cyl, data, xyz = None, None, None, None, None
 
     def read_data_downsample(self, nchunk=1,
                             calc_volume=True, 
