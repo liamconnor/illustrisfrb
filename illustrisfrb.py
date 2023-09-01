@@ -324,7 +324,10 @@ class IllustrisFRB:
 
         f = h5py.File(self.fnsim,'r')
 
-        outdir = './data_%dkpc_%d-%d'%(int(cyl_radius), xyz_halo[0], xyz_halo[1])
+        outdir = './data_snap%d_%dkpc_%d-%d'%(self.snapNum, 
+                                              int(cyl_radius), 
+                                              xyz_halo[0], 
+                                              xyz_halo[1])
 
         # Check if the directory exists
         if not os.path.exists(outdir):
@@ -339,6 +342,7 @@ class IllustrisFRB:
                                 calc_volume=calc_volume, file=f, 
                                 snapNum=self.snapNum,
                                 )
+            
             xyz = data['PartType0/Coordinates']
 
             if len(xyz)==0:
@@ -364,7 +368,7 @@ class IllustrisFRB:
             np.save(outdir+'/dm_cell_chunk%d'%chunk, dm_cyl.value)
             np.save(outdir+'/cellsize_chunk%d'%chunk, cellsize.value)
 
-            # Jit does not like "delete", so let's replace with None
+            # Instead of "delete", let's replace with None
             dm_cyl, xyz_cyl, ind_cyl, data, xyz = None, None, None, None, None
 
     def read_data_downsample(self, nchunk=1,
