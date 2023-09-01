@@ -15,6 +15,7 @@ import glob
 
 import illustris_python as il 
 
+hinv = 0.6774**-1
 
 class IllustrisFRB:
     def __init__(self, basepath, snapNum, basedir, fnsim='simulation.hdf5'):
@@ -192,16 +193,16 @@ class IllustrisFRB:
         ind_halos = self.select_groups(groups, Mmin=Mmin, 
                                        Mmax=Mmax, field_gal=field_gal)
         
-        Mhalo = groups['Group_M_Crit500']*1e10*u.M_sun
+        Mhalo = groups['Group_M_Crit500']* 1e10*u.M_sun * hinv
         Mhalo = Mhalo[ind_halos]
-        subhalos_r200 = groups['Group_R_Crit500'][ind_halos]#[ind_large]
+        subhalos_r500 = groups['Group_R_Crit500'][ind_halos]
         xyz_halos = groups['GroupPos'][ind_halos]
 
         r_halo, theta_halo, phi_halo = self.cart2spher(xyz_halos[:,0],
-                                                     xyz_halos[:,1],
-                                                  xyz_halos[:,2])
+                                                       xyz_halos[:,1],
+                                                       xyz_halos[:,2])
 
-        return xyz_halos, r_halo, theta_halo, phi_halo, Mhalo, subhalos_r200
+        return xyz_halos, r_halo, theta_halo, phi_halo, Mhalo, subhalos_r500
 
     def compute_dm_los(self,xyz,xyz_frb,dm_cell,cellsize):
         sep_kpc = np.sqrt((xyz_frb[0]-xyz[:,0])**2 + (xyz_frb[1]-xyz[:,1])**2)
