@@ -336,6 +336,10 @@ class IllustrisFRB:
 
         for chunk in range(nchunk)[:]:
             print("Processing chunk: %d/%d" % (chunk,nchunk))
+            if os.path.exists(outdir+'/xyz_cell_chunk%d'%chunk):
+                print("File exists, skipping")
+                continue
+        
             
             data=self.read_snapchunk(snapfields=self.snapfields,
                                 start=int(chunk*1e8),stop=int((chunk+1)*1e8),
