@@ -358,6 +358,7 @@ class IllustrisFRB:
             ind_cyl = np.where(sep_kpc < cyl_radius)[0]
 
             if len(ind_cyl)==0:
+                del data, xyz
                 print("    Nothing in cylinder")
                 continue
 
