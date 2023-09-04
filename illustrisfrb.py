@@ -18,11 +18,13 @@ import illustris_python as il
 hinv = 0.6774**-1
 
 class IllustrisFRB:
-    def __init__(self, basepath, snapNum, basedir, fnsim='simulation.hdf5'):
+    def __init__(self, basepath, snapNum, 
+                 basedir, fnsim='simulation.hdf5', verbose=True):
         self.basePath = basepath
         self.snapNum = snapNum
         self.basedir = basedir
         self.fnsim = fnsim
+        self.verbose = verbose
 
         self.snapfields = ['PartType0/Masses',
                            'PartType0/Coordinates',
@@ -212,8 +214,6 @@ class IllustrisFRB:
         dm_cell_tangent = dm_cell[ind] * adjust_los
         dr_los = cellsize[ind]
 
-#        print(np.sum(dr_los * adjust_los))
-
         return dr_los, dm_cell_tangent, xyz[ind, 2]
 
     def compute_frb_los_halo(self, xyz, cellsize, frac_e, density, 
@@ -240,14 +240,15 @@ class IllustrisFRB:
         mH = 1.67262192e-24 * u.g # grams
 
         for ii in range(nlos):
-            print("        LoS %d/%d" % ((1+ii),nlos))
+            if self.verbose: print("        LoS %d/%d" % ((1+ii),nlos))
+
             theta, phi = thetas_frb[ii], phis_frb[ii]
             sep_cell = np.sqrt(((theta_cell-theta)*np.cos(phi))**2 + (phi_cell-phi)**2.)
             bperp = r_cell * sep_cell
             # Check where cell is close to LoS but not in the galaxy disk
             ind = (bperp < cellsize.value) & (r_cell-r_frb[ii]>10.0)
             if np.sum(ind)==0:
-                print("Skipping because there are no nearby cells")
+                if self.verbose: print("Skipping because there are no nearby cells")
                 continue
 
             dm_los, dr = self.dm_cell(frac_e[ind], density[ind], cellsize[ind], bperp[ind])
@@ -255,8 +256,6 @@ class IllustrisFRB:
             rtot = r_cell[ind].max()-r_cell[ind].min()
             rlos = r_cell[ind]-r_cell[ind].min()
 
-    #        print(r_cell[ind]-r_frb[ii])
-    #        print(Ne*dr)
             rs = np.linspace(r_cell[ind].min(), r_cell[ind].max(), 1000)
             DM[ii] = dm.value
             Dist_cell[ii] = np.sum(dr.value)
@@ -338,7 +337,7 @@ class IllustrisFRB:
         for chunk in range(nchunk)[:]:
             print("Processing chunk: %d/%d" % (chunk,nchunk))
             if os.path.exists(outdir+'/xyz_cell_chunk%d'%chunk):
-                print("File exists, skipping")
+                if self.verbose: print("File exists, skipping")
                 continue
         
             
@@ -351,7 +350,7 @@ class IllustrisFRB:
             xyz = data['PartType0/Coordinates']
 
             if len(xyz)==0:
-                print("    Empty chunk")
+                if self.verbose: print("    Empty chunk")
                 continue
 
             sep_kpc = np.sqrt(np.sum(np.abs(xyz_halo[:2] - xyz[:, :2])**2, axis=1))
@@ -359,7 +358,7 @@ class IllustrisFRB:
 
             if len(ind_cyl)==0:
                 del data, xyz
-                print("    Nothing in cylinder")
+                if self.verbose: print("    Nothing in cylinder")
                 continue
 
             xyz_cyl, cellsize, ne, density = self.get_gas_properties(data, 
@@ -374,8 +373,7 @@ class IllustrisFRB:
             np.save(outdir+'/dm_cell_chunk%d'%chunk, dm_cyl.value)
             np.save(outdir+'/cellsize_chunk%d'%chunk, cellsize.value)
 
-            # Instead of "delete", let's replace with None
-            dm_cyl, xyz_cyl, ind_cyl, data, xyz = None, None, None, None, None
+            del dm_cyl, xyz_cyl, ind_cyl, data, xyz
 
     def read_data_downsample(self, nchunk=1,
                             calc_volume=True, 
@@ -394,7 +392,7 @@ class IllustrisFRB:
         density_field = 0 
 
         for chunk in range(nchunk)[::-1][:]:
-            print("Processing chunk: %d/%d" % (chunk,nchunk))
+            if self.verbose: print("Processing chunk: %d/%d" % (chunk,nchunk))
             
             data=self.read_snapchunk(snapfields=self.snapfields,
                                 start=int(chunk*5e7),stop=int((chunk+1)*5e7),
@@ -406,7 +404,7 @@ class IllustrisFRB:
             mass = data['PartType%s/Masses' % particletype]
 
             if len(xyz)==0:
-                print("    Empty chunk")
+                if self.verbose: print("    Empty chunk")
                 continue
 
             X = np.histogramdd(xyz, bins=(nbin, nbin, nbin), 
@@ -447,7 +445,7 @@ def get_dm_profile(xyz, xyz_halo, DM=None,
             x_new = x0 * np.cos(theta) - y0 * np.sin(theta)
             y_new = x0 * np.sin(theta) + y0 * np.cos(theta)
             eps = np.array([x_new, y_new, 0])
-            print(x_new, y_new, np.sqrt(np.sum(eps**2)))
+            if self.verbose: print(x_new, y_new, np.sqrt(np.sum(eps**2)))
             dr_los, dm_los, zlos = frb.compute_dm_los(xyz,
                                                       xyz_halo+eps, 
                                                       DM, cellsize)
@@ -465,13 +463,14 @@ def estimate_figm(fnbaryon, fnmask):
     return mass_in_halos, mass_in_IGM
 
 def dm_from_cyl(outdir=None, sav=True, xlos=None, 
-                dochunks=True, nlosx=25, nlosy=25):
+                dochunks=True, nlosx=25, nlosy=25, 
+                verbose=True):
     FRBIl = IllustrisFRB("output/", 98, "basedir")
 
     if outdir is None:
         outdir = './data_full%d-%d'%(xlos[0], xlos[1])
 
-    print("Reading from %s" % outdir)
+    if verbose: print("Reading from %s" % outdir)
 
     fl = glob.glob(outdir+'/xyz_cell_chunk*')
     fl.sort()
@@ -488,7 +487,7 @@ def dm_from_cyl(outdir=None, sav=True, xlos=None,
 
     for ii in range(len(fl))[:]:
         ff = fl[ii]
-        print(ii, ff)
+        if verbose: print(ii, ff)
         xyz_cyl_ii = np.load(ff)
         dm = np.load(fldm[ii])
         cellsizeii = np.load(flr[ii])
